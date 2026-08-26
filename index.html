@@ -248,7 +248,7 @@
     <div class="hub">🎉</div>
   </div>
 
-  <button class="spin-btn" id="spinBtn">Girar a roleta</button>
+  <button class="spin-btn" id="spinBtn" disabled>Girar a roleta</button>
   <p class="status" id="statusText"></p>
 </div>
 
@@ -264,25 +264,12 @@
 
 <script>
 /* =========================================================
-   CONFIGURACIÓN DE PREMIOS
-   - "weight" = peso relativo de probabilidad (no tiene que sumar 100,
-     el código lo normaliza automáticamente).
-   - Todos los premios son "premios reales": no hay opción de "sigue
-     participando" ni casilla vacía, así que cualquier resultado gana.
-   - El tamaño visual de cada gajo es IGUAL para todos (para que nadie
-     pueda "leer" la probabilidad mirando la ruleta); la probabilidad
-     real la decide el arreglo de pesos de abajo.
+   Los premios, el stock y la probabilidad ya NO se calculan aquí.
+   Viven en el servidor (/api/spin.js + Vercel KV) porque el stock
+   es compartido entre TODOS los visitantes: si "mentoria" tiene 5
+   unidades, tiene que ser la misma cuenta de 5 para todo el mundo,
+   no una por cada navegador. Esta página solo pide el resultado.
    ========================================================= */
-  const PRIZES = [
-    { label: "Ebook de captação",                          weight: 35, color: "#F4B740" },
-    { label: "Chaveiro localizador Bluetooth",              weight: 25, color: "#FF6B5D" },
-    { label: "Fones de ouvido",                             weight: 20, color: "#3FB8C7" },
-    { label: "2 horas de mentoria em captação de recursos", weight: 15, color: "#4CAF7D" },
-    { label: "Licença de 1 ano da plataforma afrus",        weight: 5,  color: "#7A5FC4" },
-  ];
-
-  // Clave de localStorage. Cámbiala si vas a usar varias ruletas en el mismo dominio.
-  const STORAGE_KEY = "prizeWheelResult";
 
   const canvas = document.getElementById("wheelCanvas");
   const ctx = canvas.getContext("2d");
@@ -295,7 +282,9 @@
   const size = canvas.width;
   const center = size / 2;
   const radius = size / 2;
-  const sliceAngle = (2 * Math.PI) / PRIZES.length;
+
+  let PRIZES = [];      // se llena con la respuesta del servidor
+  let sliceAngle = 0;
 
   function drawWheel(){
     ctx.clearRect(0, 0, size, size);
@@ -357,29 +346,6 @@
     return lines;
   }
 
-  function pickWinnerIndex(){
-    const totalWeight = PRIZES.reduce((sum, p) => sum + p.weight, 0);
-    let r = Math.random() * totalWeight;
-    for (let i = 0; i < PRIZES.length; i++){
-      if (r < PRIZES[i].weight) return i;
-      r -= PRIZES[i].weight;
-    }
-    return PRIZES.length - 1; // fallback por redondeo
-  }
-
-  function getStoredResult(){
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch(e){ return null; }
-  }
-
-  function storeResult(index){
-    const data = { index, label: PRIZES[index].label, at: Date.now() };
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){}
-    return data;
-  }
-
   function lockWheelAtIndex(index, animate){
     const sliceMid = index * sliceAngle + sliceAngle / 2;
     // Grados a rotar para que el gajo elegido quede bajo el puntero (arriba).
@@ -410,38 +376,64 @@
     }
   }
 
-  function disableSpin(){
+  function disableSpin(text){
     spinBtn.disabled = true;
-    spinBtn.textContent = "Você já usou seu giro";
+    spinBtn.textContent = text || "Você já usou seu giro";
   }
 
-  function init(){
-    drawWheel();
+  async function init(){
+    statusText.textContent = "Carregando...";
+    try {
+      const res = await fetch('/api/spin', { method: 'GET' });
+      const data = await res.json();
 
-    const stored = getStoredResult();
-    if (stored){
-      // Este usuário já jogou: mostramos a roleta parada no prêmio dele e bloqueamos o botão.
-      lockWheelAtIndex(stored.index, false);
-      disableSpin();
-      statusText.textContent = "Seu prêmio: " + stored.label;
+      PRIZES = data.prizes;
+      sliceAngle = (2 * Math.PI) / PRIZES.length;
+      drawWheel();
+
+      if (data.played){
+        // Esta persona (por cookie) ya giró antes: mostramos la ruleta
+        // detenida en su premio real, confirmado por el servidor.
+        lockWheelAtIndex(data.prizeIndex, false);
+        disableSpin();
+        statusText.textContent = "Seu prêmio: " + data.prizeLabel;
+      } else {
+        statusText.textContent = "";
+        spinBtn.disabled = false;
+      }
+    } catch(e){
+      statusText.textContent = "Não foi possível carregar a roleta. Recarregue a página.";
     }
   }
 
-  spinBtn.addEventListener("click", () => {
+  spinBtn.addEventListener("click", async () => {
     if (spinBtn.disabled) return;
     spinBtn.disabled = true;
     statusText.textContent = "Girando...";
 
-    const winnerIndex = pickWinnerIndex();
-    lockWheelAtIndex(winnerIndex, true);
+    try {
+      const res = await fetch('/api/spin', { method: 'POST' });
+      const data = await res.json();
 
-    canvas.addEventListener("transitionend", function onEnd(){
-      canvas.removeEventListener("transitionend", onEnd);
-      const result = storeResult(winnerIndex);
-      disableSpin();
-      statusText.textContent = "Seu prêmio: " + result.label;
-      showResultModal(result.label);
-    }, { once: true });
+      if (data.soldOut){
+        statusText.textContent = "Os prêmios acabaram. Obrigado por participar!";
+        disableSpin("Prêmios esgotados");
+        return;
+      }
+
+      PRIZES = data.prizes;
+      lockWheelAtIndex(data.prizeIndex, true);
+
+      canvas.addEventListener("transitionend", function onEnd(){
+        canvas.removeEventListener("transitionend", onEnd);
+        disableSpin();
+        statusText.textContent = "Seu prêmio: " + data.prizeLabel;
+        showResultModal(data.prizeLabel);
+      }, { once: true });
+    } catch(e){
+      statusText.textContent = "Erro ao girar. Tente novamente.";
+      spinBtn.disabled = false;
+    }
   });
 
   closeModalBtn.addEventListener("click", () => {
