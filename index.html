@@ -198,7 +198,24 @@
     font-size:20px;
     color:var(--coral);
     display:block;
-    margin-bottom:22px;
+    margin-bottom:14px;
+  }
+  .instructions{
+    font-size:14px;
+    line-height:1.5;
+    color:#5A4E78;
+    background:#F3EEFA;
+    border-radius:12px;
+    padding:14px 16px;
+    margin:0 0 22px;
+    max-width:380px;
+    text-align:center;
+  }
+  .instructions a{
+    color:var(--plum-deep);
+    font-weight:600;
+    text-decoration:underline;
+    word-break:break-word;
   }
   .modal button{
     font-family:'Poppins', sans-serif;
@@ -258,6 +275,7 @@
     <h2>Parabéns!</h2>
     <p>Você ganhou</p>
     <span class="prize-name" id="prizeName"></span>
+    <p class="instructions" id="instructionsText"></p>
     <button id="closeModal">Entendi</button>
   </div>
 </div>
@@ -277,6 +295,7 @@
   const statusText = document.getElementById("statusText");
   const overlay = document.getElementById("overlay");
   const prizeNameEl = document.getElementById("prizeName");
+  const instructionsEl = document.getElementById("instructionsText");
   const closeModalBtn = document.getElementById("closeModal");
 
   const size = canvas.width;
@@ -356,8 +375,21 @@
     canvas.style.transform = `rotate(${finalDeg}deg)`;
   }
 
-  function showResultModal(label){
+  function renderInstructions(index){
+    const prize = PRIZES[index];
+    if (!prize) { instructionsEl.innerHTML = ""; return; }
+
+    if (prize.instructions === 'link'){
+      instructionsEl.innerHTML =
+        'Acesse o material aqui: <a href="' + prize.link + '" target="_blank" rel="noopener">' + prize.link + '</a>';
+    } else {
+      instructionsEl.textContent = 'Dirija-se ao stand da afrus com este prêmio na tela para retirá-lo.';
+    }
+  }
+
+  function showResultModal(label, index){
     prizeNameEl.textContent = label;
+    renderInstructions(index);
     overlay.classList.add("show");
     launchConfetti();
   }
@@ -397,6 +429,9 @@
         lockWheelAtIndex(data.prizeIndex, false);
         disableSpin();
         statusText.textContent = "Seu prêmio: " + data.prizeLabel;
+        renderInstructions(data.prizeIndex);
+        instructionsEl.style.display = "block";
+        document.querySelector(".stage").appendChild(instructionsEl);
       } else {
         statusText.textContent = "";
         spinBtn.disabled = false;
@@ -416,7 +451,7 @@
       const data = await res.json();
 
       if (data.soldOut){
-        statusText.textContent = "Os prêmios acabaram. Obrigado por participar!";
+        statusText.textContent = "Sinto muito, não há mais prêmios disponíveis no momento.";
         disableSpin("Prêmios esgotados");
         return;
       }
@@ -428,7 +463,7 @@
         canvas.removeEventListener("transitionend", onEnd);
         disableSpin();
         statusText.textContent = "Seu prêmio: " + data.prizeLabel;
-        showResultModal(data.prizeLabel);
+        showResultModal(data.prizeLabel, data.prizeIndex);
       }, { once: true });
     } catch(e){
       statusText.textContent = "Erro ao girar. Tente novamente.";
