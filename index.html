@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roleta de Prêmios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --plum:#2B1B4D;
+    --plum-deep:#1C1033;
+    --gold:#F4B740;
+    --coral:#FF6B5D;
+    --cream:#FFF8ED;
+    --green:#4CAF7D;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:radial-gradient(circle at 50% 20%, var(--plum) 0%, var(--plum-deep) 70%);
+    font-family:'Poppins', sans-serif;
+    color:var(--cream);
+    padding:40px 20px;
+    overflow-x:hidden;
+  }
+
+  .stage{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:28px;
+    max-width:560px;
+    width:100%;
+  }
+
+  .eyebrow{
+    font-size:13px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--gold);
+    font-weight:600;
+  }
+
+  h1{
+    font-family:'Fredoka', sans-serif;
+    font-weight:700;
+    font-size:clamp(28px, 6vw, 40px);
+    margin:0;
+    text-align:center;
+    line-height:1.1;
+  }
+
+  .subtitle{
+    text-align:center;
+    color:#D9CFEE;
+    font-size:17px;
+    margin-top:-16px;
+    max-width:380px;
+  }
+
+  .wheel-wrap{
+    position:relative;
+    width:min(460px, 92vw);
+    height:min(460px, 92vw);
+  }
+
+  .pointer{
+    position:absolute;
+    top:-6px;
+    left:50%;
+    transform:translateX(-50%);
+    width:0;
+    height:0;
+    border-left:16px solid transparent;
+    border-right:16px solid transparent;
+    border-top:28px solid var(--gold);
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,0.35));
+    z-index:5;
+  }
+
+  .wheel-ring{
+    position:absolute;
+    inset:-10px;
+    border-radius:50%;
+    background:conic-gradient(from 0deg, var(--gold), var(--coral), var(--gold));
+    padding:10px;
+    box-shadow:0 12px 40px rgba(0,0,0,0.45);
+  }
+
+  #wheelCanvas{
+    display:block;
+    width:100%;
+    height:100%;
+    border-radius:50%;
+    background:var(--plum-deep);
+    transition: transform 5.2s cubic-bezier(0.12, 0.85, 0.14, 1);
+  }
+
+  .hub{
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:56px;
+    height:56px;
+    transform:translate(-50%, -50%);
+    background:var(--cream);
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 4px 10px rgba(0,0,0,0.4);
+    z-index:4;
+    font-size:22px;
+  }
+
+  .spin-btn{
+    font-family:'Fredoka', sans-serif;
+    font-weight:600;
+    font-size:18px;
+    color:var(--plum-deep);
+    background:var(--gold);
+    border:none;
+    padding:16px 44px;
+    border-radius:999px;
+    cursor:pointer;
+    box-shadow:0 8px 20px rgba(244,183,64,0.35);
+    transition:transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+  }
+  .spin-btn:hover:not(:disabled){ transform:translateY(-2px); box-shadow:0 12px 26px rgba(244,183,64,0.45); }
+  .spin-btn:active:not(:disabled){ transform:translateY(0); }
+  .spin-btn:disabled{
+    background:#5B4D7A;
+    color:#B7ABD1;
+    cursor:not-allowed;
+    box-shadow:none;
+    opacity:0.7;
+  }
+
+  .status{
+    font-size:16px;
+    font-weight:500;
+    color:#E4DAF6;
+    text-align:center;
+    min-height:20px;
+  }
+
+  /* Modal de resultado */
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(28,16,51,0.72);
+    backdrop-filter:blur(3px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.3s ease;
+    z-index:20;
+  }
+  .overlay.show{ opacity:1; pointer-events:auto; }
+
+  .modal{
+    background:var(--cream);
+    color:var(--plum-deep);
+    border-radius:20px;
+    padding:36px 32px;
+    max-width:340px;
+    width:90%;
+    text-align:center;
+    transform:scale(0.85);
+    transition:transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+  }
+  .overlay.show .modal{ transform:scale(1); }
+
+  .modal .icon{ font-size:44px; margin-bottom:8px; }
+  .modal h2{
+    font-family:'Fredoka', sans-serif;
+    font-size:22px;
+    margin:0 0 6px;
+  }
+  .modal p{
+    font-size:15px;
+    color:#5A4E78;
+    margin:0 0 22px;
+  }
+  .modal .prize-name{
+    font-family:'Fredoka', sans-serif;
+    font-weight:600;
+    font-size:20px;
+    color:var(--coral);
+    display:block;
+    margin-bottom:22px;
+  }
+  .modal button{
+    font-family:'Poppins', sans-serif;
+    font-weight:600;
+    font-size:14px;
+    background:var(--plum-deep);
+    color:var(--cream);
+    border:none;
+    padding:12px 28px;
+    border-radius:999px;
+    cursor:pointer;
+  }
+
+  /* Confeti */
+  .confetti{
+    position:fixed;
+    top:-10px;
+    width:8px;
+    height:14px;
+    opacity:0.9;
+    z-index:19;
+    pointer-events:none;
+    animation:fall linear forwards;
+  }
+  @keyframes fall{
+    to{ transform:translateY(105vh) rotate(540deg); opacity:0.4; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    #wheelCanvas{ transition-duration: 0.4s; }
+    .confetti{ animation:none; display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <span class="eyebrow">Gire e ganhe</span>
+  <h1>Roleta de prêmios</h1>
+  <p class="subtitle">Você tem apenas um giro. Todo mundo ganha algo!</p>
+
+  <div class="wheel-wrap">
+    <div class="pointer"></div>
+    <div class="wheel-ring">
+      <canvas id="wheelCanvas" width="600" height="600"></canvas>
+    </div>
+    <div class="hub">🎉</div>
+  </div>
+
+  <button class="spin-btn" id="spinBtn">Girar a roleta</button>
+  <p class="status" id="statusText"></p>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="icon">🏆</div>
+    <h2>Parabéns!</h2>
+    <p>Você ganhou</p>
+    <span class="prize-name" id="prizeName"></span>
+    <button id="closeModal">Entendi</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIGURACIÓN DE PREMIOS
+   - "weight" = peso relativo de probabilidad (no tiene que sumar 100,
+     el código lo normaliza automáticamente).
+   - Todos los premios son "premios reales": no hay opción de "sigue
+     participando" ni casilla vacía, así que cualquier resultado gana.
+   - El tamaño visual de cada gajo es IGUAL para todos (para que nadie
+     pueda "leer" la probabilidad mirando la ruleta); la probabilidad
+     real la decide el arreglo de pesos de abajo.
+   ========================================================= */
+  const PRIZES = [
+    { label: "Ebook de captação",                          weight: 35, color: "#F4B740" },
+    { label: "Chaveiro localizador Bluetooth",              weight: 25, color: "#FF6B5D" },
+    { label: "Fones de ouvido",                             weight: 20, color: "#3FB8C7" },
+    { label: "2 horas de mentoria em captação de recursos", weight: 15, color: "#4CAF7D" },
+    { label: "Licença de 1 ano da plataforma afrus",        weight: 5,  color: "#7A5FC4" },
+  ];
+
+  // Clave de localStorage. Cámbiala si vas a usar varias ruletas en el mismo dominio.
+  const STORAGE_KEY = "prizeWheelResult";
+
+  const canvas = document.getElementById("wheelCanvas");
+  const ctx = canvas.getContext("2d");
+  const spinBtn = document.getElementById("spinBtn");
+  const statusText = document.getElementById("statusText");
+  const overlay = document.getElementById("overlay");
+  const prizeNameEl = document.getElementById("prizeName");
+  const closeModalBtn = document.getElementById("closeModal");
+
+  const size = canvas.width;
+  const center = size / 2;
+  const radius = size / 2;
+  const sliceAngle = (2 * Math.PI) / PRIZES.length;
+
+  function drawWheel(){
+    ctx.clearRect(0, 0, size, size);
+    PRIZES.forEach((prize, i) => {
+      const start = i * sliceAngle - Math.PI / 2; // -90° para alinear con el puntero arriba
+      const end = start + sliceAngle;
+
+      ctx.beginPath();
+      ctx.moveTo(center, center);
+      ctx.arc(center, center, radius, start, end);
+      ctx.closePath();
+      ctx.fillStyle = prize.color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(28,16,51,0.35)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Texto a lo largo del radio, con salto de línea para etiquetas largas
+      ctx.save();
+      ctx.translate(center, center);
+      ctx.rotate(start + sliceAngle / 2);
+      ctx.textAlign = "right";
+      const fontSize = 21;
+      ctx.font = "700 " + fontSize + "px Poppins, sans-serif";
+      const textX = radius - 22;
+      const maxLineWidth = 165;
+      const lines = wrapLabel(ctx, prize.label, maxLineWidth);
+      const lineHeight = fontSize + 4;
+      const startY = -((lines.length - 1) * lineHeight) / 2;
+      lines.forEach((line, li) => {
+        const y = startY + li * lineHeight + 7;
+        // Contorno claro para que el texto resalte sobre cualquier color de fondo
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "rgba(255,248,237,0.85)";
+        ctx.lineJoin = "round";
+        ctx.strokeText(line, textX, y);
+        ctx.fillStyle = "#1C1033";
+        ctx.fillText(line, textX, y);
+      });
+      ctx.restore();
+    });
+  }
+
+  // Divide una etiqueta en varias líneas para que quepa dentro de un ancho máximo
+  function wrapLabel(ctx, text, maxWidth){
+    const words = text.split(" ");
+    const lines = [];
+    let current = "";
+    words.forEach(word => {
+      const test = current ? current + " " + word : word;
+      if (ctx.measureText(test).width > maxWidth && current){
+        lines.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    });
+    if (current) lines.push(current);
+    return lines;
+  }
+
+  function pickWinnerIndex(){
+    const totalWeight = PRIZES.reduce((sum, p) => sum + p.weight, 0);
+    let r = Math.random() * totalWeight;
+    for (let i = 0; i < PRIZES.length; i++){
+      if (r < PRIZES[i].weight) return i;
+      r -= PRIZES[i].weight;
+    }
+    return PRIZES.length - 1; // fallback por redondeo
+  }
+
+  function getStoredResult(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e){ return null; }
+  }
+
+  function storeResult(index){
+    const data = { index, label: PRIZES[index].label, at: Date.now() };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){}
+    return data;
+  }
+
+  function lockWheelAtIndex(index, animate){
+    const sliceMid = index * sliceAngle + sliceAngle / 2;
+    // Grados a rotar para que el gajo elegido quede bajo el puntero (arriba).
+    const targetDeg = 360 - (sliceMid * 180 / Math.PI);
+    const extraTurns = animate ? 6 : 0;
+    const finalDeg = extraTurns * 360 + targetDeg;
+    canvas.style.transition = animate ? "" : "none";
+    canvas.style.transform = `rotate(${finalDeg}deg)`;
+  }
+
+  function showResultModal(label){
+    prizeNameEl.textContent = label;
+    overlay.classList.add("show");
+    launchConfetti();
+  }
+
+  function launchConfetti(){
+    const colors = ["#F4B740", "#FF6B5D", "#4CAF7D", "#7A5FC4", "#3FB8C7"];
+    for (let i = 0; i < 60; i++){
+      const el = document.createElement("div");
+      el.className = "confetti";
+      el.style.left = Math.random() * 100 + "vw";
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.animationDuration = (2.5 + Math.random() * 1.5) + "s";
+      el.style.animationDelay = (Math.random() * 0.4) + "s";
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 4500);
+    }
+  }
+
+  function disableSpin(){
+    spinBtn.disabled = true;
+    spinBtn.textContent = "Você já usou seu giro";
+  }
+
+  function init(){
+    drawWheel();
+
+    const stored = getStoredResult();
+    if (stored){
+      // Este usuário já jogou: mostramos a roleta parada no prêmio dele e bloqueamos o botão.
+      lockWheelAtIndex(stored.index, false);
+      disableSpin();
+      statusText.textContent = "Seu prêmio: " + stored.label;
+    }
+  }
+
+  spinBtn.addEventListener("click", () => {
+    if (spinBtn.disabled) return;
+    spinBtn.disabled = true;
+    statusText.textContent = "Girando...";
+
+    const winnerIndex = pickWinnerIndex();
+    lockWheelAtIndex(winnerIndex, true);
+
+    canvas.addEventListener("transitionend", function onEnd(){
+      canvas.removeEventListener("transitionend", onEnd);
+      const result = storeResult(winnerIndex);
+      disableSpin();
+      statusText.textContent = "Seu prêmio: " + result.label;
+      showResultModal(result.label);
+    }, { once: true });
+  });
+
+  closeModalBtn.addEventListener("click", () => {
+    overlay.classList.remove("show");
+  });
+
+  init();
+</script>
+</body>
+</html>
