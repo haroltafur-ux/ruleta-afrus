@@ -17,10 +17,10 @@ const crypto = require('crypto');
      agotar de verdad.
    ========================================================= */
 const PRIZES = [
-  { key: 'fones',    label: 'Fones de ouvido',                              color: '#3FB8C7', weight: 30, initialStock: 125,    instructions: 'stand' },
-  { key: 'chaveiro',  label: 'Chaveiro localizador Bluetooth',               color: '#FF6B5D', weight: 30, initialStock: 125,    instructions: 'stand' },
+  { key: 'fones',    label: 'Fones de ouvido',                              color: '#3FB8C7', weight: 38, initialStock: 125,    instructions: 'stand' },
+  { key: 'chaveiro',  label: 'Chaveiro localizador Bluetooth',               color: '#FF6B5D', weight: 38, initialStock: 125,    instructions: 'stand' },
   { key: 'mentoria',  label: '2 horas de mentoria em captação de recursos',  color: '#4CAF7D', weight: 3,  initialStock: 5,      instructions: 'stand' },
-  { key: 'ebook',     label: 'Guia Prático de Doações Recorrentes',         color: '#F4B740', weight: 35, initialStock: 100000, instructions: 'link'  },
+  { key: 'ebook',     label: 'Guia Prático de Doações Recorrentes',         color: '#F4B740', weight: 19, initialStock: 100000, instructions: 'link'  },
   { key: 'licenca',   label: 'Licença de 1 ano da plataforma afrus',        color: '#7A5FC4', weight: 2,  initialStock: 3,      instructions: 'stand' },
 ];
 
